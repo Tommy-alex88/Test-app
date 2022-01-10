@@ -1,6 +1,20 @@
 import { useContext } from "react";
+import styled from "styled-components";
 
 import Context from "../store/context";
+import Button from "./UI/Button";
+import Bubble from "./UI/Bubble";
+import Snowman from "./UI/Snowman";
+import DnDContainer from "./UI/DnDContainer";
+
+const MainDiv = styled.div`
+  width: 490px;
+  margin: auto;
+`;
+
+const SnowmanDiv = styled.div`
+  display: flex;
+`;
 
 const Main: React.FC = () => {
   const ctx = useContext(Context);
@@ -11,11 +25,15 @@ const Main: React.FC = () => {
     en = ctx.sentenceAll[0].en;
   }
   return (
-    <div>
+    <MainDiv>
       <h1>Translate this sentence</h1>
-      <p>{ru}</p>
-      <p>{en}</p>
-    </div>
+      <SnowmanDiv>
+        <Snowman />
+        <Bubble>{ru}</Bubble>
+      </SnowmanDiv>
+      <DnDContainer></DnDContainer>
+      <Button>Check</Button>
+    </MainDiv>
   );
 };
 

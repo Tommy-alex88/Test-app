@@ -1,7 +1,14 @@
+import { Fragment } from "react";
 import Main from "./components/Main";
+import GlobalStyle from "./GlobalStyle";
 
-function App() {
-  return <Main />;
-}
+const App: React.FC = () => {
+  return (
+    <Fragment>
+      <GlobalStyle />
+      <Main />
+    </Fragment>
+  );
+};
 
 export default App;
