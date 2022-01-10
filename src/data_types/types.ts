@@ -5,3 +5,6 @@ export type Sentence = {
 export type Sentences = {
   sentenceAll: Sentence[];
 };
+export type RespData = {
+  data: Sentences;
+};
