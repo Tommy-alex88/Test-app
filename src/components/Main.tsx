@@ -2,10 +2,9 @@ import { useContext } from "react";
 import styled from "styled-components";
 
 import Context from "../store/context";
-import Button from "./UI/Button";
 import Bubble from "./UI/Bubble";
 import Snowman from "./UI/Snowman";
-import DnDContainer from "./UI/DnDContainer";
+import DnDComponent from "./DnDComponent";
 
 const MainDiv = styled.div`
   width: 490px;
@@ -31,8 +30,7 @@ const Main: React.FC = () => {
         <Snowman />
         <Bubble>{ru}</Bubble>
       </SnowmanDiv>
-      <DnDContainer></DnDContainer>
-      <Button>Check</Button>
+      <DnDComponent data={en}></DnDComponent>
     </MainDiv>
   );
 };

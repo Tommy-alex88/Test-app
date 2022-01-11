@@ -8,3 +8,8 @@ export type Sentences = {
 export type RespData = {
   data: Sentences;
 };
+
+export type Board = {
+  id: "drag" | "drop";
+  items: string[];
+};
