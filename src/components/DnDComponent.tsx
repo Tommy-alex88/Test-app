@@ -4,6 +4,7 @@ import { Board, Item } from "../data_types/types";
 import Button from "./UI/Button";
 import Message from "./UI/Message";
 import checkValidity from "../utils/checkValidity";
+import speechSynthesizer from "../utils/speechSynthesizer";
 
 import DnDContainer from "./UI/DnDContainer";
 import DragDiv from "./UI/DragDiv";
@@ -44,8 +45,12 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
   }, [prepareData]);
 
   const checkHandler = () => {
-    const isCheckPass: boolean = checkValidity(data, boards[0]);
-    setIsValid(isCheckPass);
+    const isCheckPass: boolean | string = checkValidity(data, boards[0]);
+    if (typeof isCheckPass === "string") {
+      speechSynthesizer(data);
+    } else {
+      setIsValid(isCheckPass);
+    }
   };
 
   const dragHandler = (
