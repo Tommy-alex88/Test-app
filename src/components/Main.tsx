@@ -7,7 +7,7 @@ import Snowman from "./UI/Snowman";
 import DnDComponent from "./DnDComponent";
 
 const MainDiv = styled.div`
-  width: 490px;
+  width: 491px;
   margin: auto;
 `;
 

@@ -11,5 +11,10 @@ export type RespData = {
 
 export type Board = {
   id: "drag" | "drop";
-  items: string[];
+  items: Item[];
+};
+
+export type Item = {
+  id: string;
+  value: string;
 };

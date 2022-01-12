@@ -1,24 +1,38 @@
 import { Fragment, useState, useEffect, useCallback } from "react";
 
-import { Board } from "../data_types/types";
+import { Board, Item } from "../data_types/types";
 import Button from "./UI/Button";
 import Message from "./UI/Message";
+import checkValidity from "../utils/checkValidity";
 
 import DnDContainer from "./UI/DnDContainer";
-import DnDItem from "./UI/DragDiv";
+import DragDiv from "./UI/DragDiv";
 
 const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
   const [boards, setBoards] = useState<Board[]>([]);
-  const [currentItem, setCurrentItem] = useState<string>();
-  const [currentBoard, setCurrentBoard] = useState<Board>();
   const [isValid, setIsValid] = useState<boolean | null>(null);
+
+  let dragItem: Item;
+  let dragBoard: Board | undefined;
 
   const prepareData = useCallback(() => {
     try {
-      const enData = data.replace(/,/g, "").toLowerCase().split(" ");
+      const enData = data.replace(/,/g, "").toLowerCase().split(" ").sort();
+      let cells: Item[] = [];
+      for (let i = 0; i <= 11; i++) {
+        if (typeof enData[i] !== "undefined") {
+          cells.push({
+            id: Math.random().toFixed(4).toString(),
+            value: enData[i],
+          });
+        } else {
+          cells.push({ id: Math.random().toFixed(4).toString(), value: "" });
+        }
+      }
+
       setBoards([
         { id: "drop", items: [] },
-        { id: "drag", items: enData.sort() },
+        { id: "drag", items: cells },
       ]);
     } catch (error) {
       console.log(error);
@@ -29,64 +43,126 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
     prepareData();
   }, [prepareData]);
 
+  const checkHandler = () => {
+    const isCheckPass: boolean = checkValidity(data, boards[0]);
+    setIsValid(isCheckPass);
+  };
+
   const dragHandler = (
     e: React.MouseEvent<HTMLElement>,
     board: Board,
-    item: string
+    item: Item
+  ) => {};
+
+  const dragStartHandler = (
+    e: React.MouseEvent<HTMLElement>,
+    board: Board,
+    item: Item
   ) => {
-    if (item !== currentItem) {
-      setCurrentBoard(board);
-      setCurrentItem(item);
-      setIsValid(null);
+    if (item !== dragItem && item.value !== "") {
+      dragBoard = board;
+      dragItem = item;
     }
   };
-
-  const dragStartHandler = (e: React.MouseEvent<HTMLElement>) => {};
 
   const dragOverHandler = (e: React.MouseEvent<HTMLElement>) => {
     e.preventDefault();
     e.stopPropagation();
   };
-
   const dragLeavHandler = (e: React.MouseEvent<HTMLElement>) => {};
   const dragEndHandler = (e: React.MouseEvent<HTMLElement>) => {};
 
   const dropHandler = (
     e: React.MouseEvent<HTMLElement>,
-    board: Board,
-    item: string | null
+    dropBoard: Board,
+    dropItem: Item | null
   ) => {
     e.preventDefault();
     e.stopPropagation();
-    if (
-      typeof currentBoard !== "undefined" &&
-      typeof currentItem !== "undefined"
-    ) {
-      if (item === null) {
-        board.items.push(currentItem);
-      }
-      const currentIndex = currentBoard.items.indexOf(currentItem);
-      const tempBoard = { ...currentBoard };
-      tempBoard.items.splice(currentIndex, 1);
-      setCurrentBoard(tempBoard);
-
-      if (item !== null) {
-        const dropIndex = board.items.indexOf(item);
-        board.items.splice(dropIndex + 1, 0, currentItem);
+    if (isValid !== null) {
+      setIsValid(null);
+    }
+    if (typeof dragBoard !== "undefined" && typeof dragItem !== "undefined") {
+      // dragBoard is board where we take item from, dropBoard is board where we drop item to
+      if (
+        dropItem !== null &&
+        dropBoard.id === "drop" &&
+        dragBoard.id === "drag"
+      ) {
+        const dropIndex = dropBoard.items.indexOf(dropItem);
+        dropBoard.items.splice(dropIndex, 0, dragItem);
       }
 
-      if (board.id === "drag") {
-        board.items.sort();
+      if (dropItem === null) {
+        if (
+          (dragBoard.id === "drop" && dropBoard.id === "drop") ||
+          dropBoard.id === "drag"
+        ) {
+          return;
+        } else {
+          dropBoard.items.push(dragItem);
+        }
       }
-      setCurrentItem("");
 
+      // change position of items in the check board
+      if (dragBoard.id === "drop" && dropBoard.id === "drop") {
+        if (dropItem !== null) {
+          const dragIndex = dropBoard.items.findIndex(
+            (el) => el.id === dragItem.id
+          );
+          const dropIndex = dropBoard.items.findIndex(
+            (el) => el.id === dropItem.id
+          );
+          const tempItem: Item = dropBoard.items[dropIndex];
+
+          dropBoard.items[dropIndex] = dropBoard.items[dragIndex];
+          dropBoard.items[dragIndex] = tempItem;
+
+          console.log("пытаюсь поменять местами");
+        } else {
+          return;
+        }
+      }
+
+      // remove dragItem from Board totally if dropping down from check board to cloud
+      if (dragBoard.id === "drop" && dropBoard.id === "drag") {
+        const dragIndex = dragBoard.items.findIndex(
+          (el) => el.id === dragItem.id
+        );
+        dragBoard.items.splice(dragIndex, 1);
+        console.log("если из дроп " + dragItem.value);
+      }
+
+      // remove dragItem from Board with empty place left if board.is === drag
+      if (dragBoard.id === "drag" && dropBoard.id === "drop") {
+        const dragIndex = dragBoard.items.findIndex(
+          (el) => el.id === dragItem.id
+        );
+        dragBoard.items.splice(dragIndex, 1, { id: "empty", value: "" });
+      }
+
+      // drop item to empty zone in dragBoard
+      if (dropBoard.id === "drag" && dragBoard.id !== "drag") {
+        const dropIndex = dropBoard.items.findIndex((el) => el.id === "empty");
+        console.log(dropIndex);
+        dropBoard.items.splice(dropIndex, 1, dragItem);
+      }
+
+      // sort cloud bord
+      if (dropBoard.id === "drag") {
+        dropBoard.items.sort((a, b) =>
+          a.value === "" ? 1 : a.value > b.value ? 1 : -1
+        );
+      }
+      dragBoard = undefined;
+      // rerender boards
       setBoards(
         boards.map((b) => {
-          if (b.id === board.id) {
-            return board;
+          if (b.id === dropBoard.id) {
+            return dropBoard;
           }
-          if (b.id === currentBoard.id) {
-            return currentBoard;
+          if (b.id === dragBoard?.id && dragBoard) {
+            return dragBoard;
           }
           return b;
         })
@@ -99,26 +175,12 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
     e.stopPropagation();
   };
 
-  const checkHandler = () => {
-    const testSentence = boards[0].items.join(" ");
-    const pattern = new RegExp(`^${testSentence}`);
-    try {
-      const test = data.replace(/,/g, "").toLowerCase().match(pattern);
-      if (test !== null && testSentence.length !== 0) {
-        setIsValid(true);
-      } else {
-        setIsValid(false);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   return (
     <Fragment>
       {boards.map((board) => {
         return (
           <DnDContainer
+            draggable="false"
             key={Math.random()}
             onDragOver={(e) => dragOverCardHandler(e)}
             onDrop={(e) => dropHandler(e, board, null)}
@@ -127,19 +189,19 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
           >
             {board.items.map((item) => {
               return (
-                <DnDItem
+                <DragDiv
                   key={Math.random()}
-                  className="item"
-                  draggable="true"
+                  className={item.value === "" ? "empty" : "item"}
+                  draggable={item.value === "" ? "false" : "true"}
                   onDrag={(e) => dragHandler(e, board, item)}
-                  onDragStart={(e) => dragStartHandler(e)}
+                  onDragStart={(e) => dragStartHandler(e, board, item)}
                   onDragOver={(e) => dragOverHandler(e)}
                   onDragLeave={(e) => dragLeavHandler(e)}
                   onDragEnd={(e) => dragEndHandler(e)}
                   onDrop={(e) => dropHandler(e, board, item)}
                 >
-                  {item}
-                </DnDItem>
+                  {item.value}
+                </DragDiv>
               );
             })}
           </DnDContainer>

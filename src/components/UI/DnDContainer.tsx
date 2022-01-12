@@ -1,10 +1,10 @@
 import styled from "styled-components";
 
 const DnDContainer = styled.div`
+  display: block;
   min-height: 7rem;
   width: 92%;
   margin: auto auto 2rem auto;
-  display: block;
   background-color: inherit;
 
   &.drop {

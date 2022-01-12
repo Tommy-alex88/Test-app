@@ -12,7 +12,7 @@ const Bubble = styled.div`
   position: relative;
 
   &::before {
-    border-bottom: 25px solid #ffffff;
+    border-bottom: 25px solid #f5f5f5;
     border-left: 25px solid transparent;
     bottom: 15px;
     content: "";
