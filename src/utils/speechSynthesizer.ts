@@ -1,3 +1,5 @@
+//it works in Chrome by default
+
 const synth = window.speechSynthesis;
 let voices = [];
 const speechSynthesizer = (text: string) => {

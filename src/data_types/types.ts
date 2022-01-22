@@ -18,3 +18,14 @@ export type Item = {
   id: string;
   value: string;
 };
+
+export type Coordinates = {
+  x: number;
+  y: number;
+};
+
+export type AnimationRoutes = {
+  element: HTMLElement | null;
+  startPosition: { x: number; y: number };
+  endPosition: { x: number; y: number };
+};
