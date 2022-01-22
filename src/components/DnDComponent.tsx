@@ -1,12 +1,21 @@
-import { Fragment, useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback, MouseEvent } from "react";
 
-import { Board, Item } from "../data_types/types";
+import { Board, Coordinates, Item, AnimationRoutes } from "../data_types/types";
 import Button from "./UI/Button";
 import Message from "./UI/Message";
 import checkValidity from "../utils/checkValidity";
+import {
+  animateTable,
+  countTableShift,
+  countAnimationRoutes,
+  sortAnimation,
+  sortTable,
+} from "../utils/DragAndDrop";
+import speechSynthesizer from "../utils/speechSynthesizer";
 
 import DnDContainer from "./UI/DnDContainer";
 import DragDiv from "./UI/DragDiv";
+import DropDiv from "./UI/DropDiv";
 
 const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
   const [boards, setBoards] = useState<Board[]>([]);
@@ -22,7 +31,7 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
       for (let i = 0; i <= 11; i++) {
         if (typeof enData[i] !== "undefined") {
           cells.push({
-            id: Math.random().toFixed(4).toString(),
+            id: enData[i] + i + Date.now().toString(),
             value: enData[i],
           });
         } else {
@@ -44,135 +53,149 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
   }, [prepareData]);
 
   const checkHandler = () => {
-    const isCheckPass: boolean = checkValidity(data, boards[0]);
-    setIsValid(isCheckPass);
-  };
-
-  const dragHandler = (
-    e: React.MouseEvent<HTMLElement>,
-    board: Board,
-    item: Item
-  ) => {};
-
-  const dragStartHandler = (
-    e: React.MouseEvent<HTMLElement>,
-    board: Board,
-    item: Item
-  ) => {
-    if (item !== dragItem && item.value !== "") {
-      dragBoard = board;
-      dragItem = item;
+    const isCheckPass: boolean | string = checkValidity(data, boards[0]);
+    if (typeof isCheckPass === "string") {
+      //it works in Chrome by default
+      // speechSynthesizer(data);
+      console.log(data);
+      setIsValid(true);
+    } else {
+      setIsValid(isCheckPass);
     }
   };
 
-  const dragOverHandler = (e: React.MouseEvent<HTMLElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-  const dragLeavHandler = (e: React.MouseEvent<HTMLElement>) => {};
-  const dragEndHandler = (e: React.MouseEvent<HTMLElement>) => {};
+  let startY: number;
+  let isDragging: boolean = false;
+  let animProgress: number = 0;
+  let dragElement: HTMLElement;
+  let elemBelow: Element | null;
+  let dropZonePosition: Coordinates;
+  let animationRoutesTable: AnimationRoutes[] = [];
+  let dropItemsLenght: number;
+  let dropEl: HTMLElement | null;
 
-  const dropHandler = (
-    e: React.MouseEvent<HTMLElement>,
-    dropBoard: Board,
-    dropItem: Item | null
-  ) => {
+  const mouseDownHandler = (e: MouseEvent, board: Board, item: Item) => {
     e.preventDefault();
-    e.stopPropagation();
+    dragItem = item;
+    dragBoard = board;
+    dragElement = e.currentTarget as HTMLElement;
+
+    let shiftX = e.clientX - dragElement.getBoundingClientRect().left;
+    let shiftY = e.clientY - dragElement.getBoundingClientRect().top;
+
+    const dragItemIndex = dragBoard.items.indexOf(dragItem);
+
+    if (dragBoard.id === "drag") {
+      dropItemsLenght = boards[0].items.length;
+      dropEl = document.getElementById("drop");
+    } else if (dragBoard.id === "drop") {
+      dropItemsLenght = boards[1].items.filter((i) => i.value !== "").length;
+      dropEl = document.getElementById("drag");
+    }
+    // count coordinates of drop zone
+    if (dropEl) {
+      const dropElCoord = dropEl.getBoundingClientRect();
+      const { rowShift, multiplier } = countTableShift(
+        dragItemIndex,
+        dropItemsLenght
+      );
+
+      dropZonePosition = {
+        x: e.clientX - dropElCoord.left - shiftX - 5 - multiplier * 80,
+        y: e.clientY - dropElCoord.top - shiftY - rowShift,
+      };
+    }
+    animationRoutesTable = countAnimationRoutes(
+      dragBoard.items,
+      dragItemIndex,
+      dropZonePosition,
+      null
+    );
+
+    startY = e.pageY;
+    isDragging = true;
+  };
+
+  const mouseMoveHandler = (e: MouseEvent) => {
+    if (!isDragging) {
+      return;
+    }
+    if (dragElement) {
+      dragElement.style.display = "none";
+      elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+      dragElement.style.display = "inline-flex";
+
+      const elIndex = animationRoutesTable.findIndex(
+        (el) => el.element === dragElement
+      );
+      const el = animationRoutesTable[elIndex];
+
+      let vector: number = el.endPosition.x / el.endPosition.y;
+      let dy: number = e.pageY - startY;
+      let dx: number = dy * vector;
+      animProgress = dy / el.endPosition.y; // progress of animation played
+
+      if (animProgress < 0 && Math.abs(animProgress) <= 1) {
+        let translate: string = `translate(${dx}px, ${dy}px)`;
+        dragElement.style.transform = translate;
+      }
+      animateTable(animationRoutesTable, dragElement, animProgress);
+    }
+  };
+
+  const mouseUpHandler = (e: MouseEvent) => {
+    isDragging = false;
     if (isValid !== null) {
       setIsValid(null);
     }
-    if (typeof dragBoard !== "undefined" && typeof dragItem !== "undefined") {
-      // dragBoard is board where we take item from, dropBoard is board where we drop item to
-      if (
-        dropItem !== null &&
-        dropBoard.id === "drop" &&
-        dragBoard.id === "drag"
-      ) {
-        const dropIndex = dropBoard.items.indexOf(dropItem);
-        dropBoard.items.splice(dropIndex, 0, dragItem);
+    const tempDropItems = boards[0].items.map((a) => {
+      return { ...a };
+    });
+    const tempDragItems = boards[1].items.map((a) => {
+      return { ...a };
+    });
+
+    if (typeof dragBoard !== "undefined") {
+      if (dragBoard.id === "drag" && elemBelow?.id.includes("drop")) {
+        tempDropItems.push(dragItem);
+        let dragIndex = dragBoard.items.indexOf(dragItem);
+        tempDragItems.splice(dragIndex, 1);
+        tempDragItems.push({
+          id: Math.random().toFixed(4).toString(),
+          value: "",
+        });
+      }
+      if (dragBoard.id === "drop" && elemBelow?.id.includes("drag")) {
+        let dragIndex = dragBoard.items.indexOf(dragItem);
+        tempDropItems.splice(dragIndex, 1);
+        tempDragItems.splice(dropItemsLenght, 1, dragItem);
       }
 
-      if (dropItem === null) {
-        if (
-          (dragBoard.id === "drop" && dropBoard.id === "drop") ||
-          dropBoard.id === "drag"
-        ) {
-          return;
-        } else {
-          dropBoard.items.push(dragItem);
-        }
+      const updatedBoards: Board[] = [
+        { id: "drop", items: tempDropItems },
+        { id: "drag", items: tempDragItems },
+      ];
+
+      setBoards(updatedBoards);
+
+      if (dragBoard.id === "drop") {
+        console.log(boards[1].items);
+
+        const sortedItems = sortTable(tempDragItems);
+
+        sortAnimation(tempDragItems, sortedItems)
+          .then(() => {
+            setTimeout(() => {
+              const updatedBoards: Board[] = [
+                { id: "drop", items: tempDropItems },
+                { id: "drag", items: sortedItems },
+              ];
+              setBoards(updatedBoards);
+            }, 500);
+          })
+          .catch((error) => console.log(error.message));
       }
-
-      // change position of items in the check board
-      if (dragBoard.id === "drop" && dropBoard.id === "drop") {
-        if (dropItem !== null) {
-          const dragIndex = dropBoard.items.findIndex(
-            (el) => el.id === dragItem.id
-          );
-          const dropIndex = dropBoard.items.findIndex(
-            (el) => el.id === dropItem.id
-          );
-          const tempItem: Item = dropBoard.items[dropIndex];
-
-          dropBoard.items[dropIndex] = dropBoard.items[dragIndex];
-          dropBoard.items[dragIndex] = tempItem;
-
-          console.log("пытаюсь поменять местами");
-        } else {
-          return;
-        }
-      }
-
-      // remove dragItem from Board totally if dropping down from check board to cloud
-      if (dragBoard.id === "drop" && dropBoard.id === "drag") {
-        const dragIndex = dragBoard.items.findIndex(
-          (el) => el.id === dragItem.id
-        );
-        dragBoard.items.splice(dragIndex, 1);
-        console.log("если из дроп " + dragItem.value);
-      }
-
-      // remove dragItem from Board with empty place left if board.is === drag
-      if (dragBoard.id === "drag" && dropBoard.id === "drop") {
-        const dragIndex = dragBoard.items.findIndex(
-          (el) => el.id === dragItem.id
-        );
-        dragBoard.items.splice(dragIndex, 1, { id: "empty", value: "" });
-      }
-
-      // drop item to empty zone in dragBoard
-      if (dropBoard.id === "drag" && dragBoard.id !== "drag") {
-        const dropIndex = dropBoard.items.findIndex((el) => el.id === "empty");
-        console.log(dropIndex);
-        dropBoard.items.splice(dropIndex, 1, dragItem);
-      }
-
-      // sort cloud bord
-      if (dropBoard.id === "drag") {
-        dropBoard.items.sort((a, b) =>
-          a.value === "" ? 1 : a.value > b.value ? 1 : -1
-        );
-      }
-      dragBoard = undefined;
-      // rerender boards
-      setBoards(
-        boards.map((b) => {
-          if (b.id === dropBoard.id) {
-            return dropBoard;
-          }
-          if (b.id === dragBoard?.id && dragBoard) {
-            return dragBoard;
-          }
-          return b;
-        })
-      );
     }
-  };
-
-  const dragOverCardHandler = (e: React.MouseEvent<HTMLElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
   };
 
   return (
@@ -180,28 +203,27 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
       {boards.map((board) => {
         return (
           <DnDContainer
-            draggable="false"
             key={Math.random()}
-            onDragOver={(e) => dragOverCardHandler(e)}
-            onDrop={(e) => dropHandler(e, board, null)}
-            className={board.id === "drag" ? "drag" : "drop"}
-            id={board.items.length >= 5 && board.id === "drop" ? "addLine" : ""}
+            onMouseMove={(e) => mouseMoveHandler(e)}
+            onMouseUp={(e) => mouseUpHandler(e)}
+            id={board.id === "drag" ? "drag" : "drop"}
           >
             {board.items.map((item) => {
               return (
-                <DragDiv
+                <DropDiv
                   key={Math.random()}
-                  className={item.value === "" ? "empty" : "item"}
-                  draggable={item.value === "" ? "false" : "true"}
-                  onDrag={(e) => dragHandler(e, board, item)}
-                  onDragStart={(e) => dragStartHandler(e, board, item)}
-                  onDragOver={(e) => dragOverHandler(e)}
-                  onDragLeave={(e) => dragLeavHandler(e)}
-                  onDragEnd={(e) => dragEndHandler(e)}
-                  onDrop={(e) => dropHandler(e, board, item)}
+                  id={board.id === "drag" ? "drag" : ""}
                 >
-                  {item.value}
-                </DragDiv>
+                  {item.value !== "" && (
+                    <DragDiv
+                      key={Math.random()}
+                      onMouseDown={(e) => mouseDownHandler(e, board, item)}
+                      id={item.id}
+                    >
+                      {item.value}
+                    </DragDiv>
+                  )}
+                </DropDiv>
               );
             })}
           </DnDContainer>

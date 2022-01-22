@@ -9,6 +9,14 @@ import DnDComponent from "./DnDComponent";
 const MainDiv = styled.div`
   width: 491px;
   margin: auto;
+  h1 {
+    font-size: 36px;
+    font-style: normal;
+    font-weight: normal;
+    line-height: 42px;
+    color: #252525;
+    text-shadow: -2px -4px 3px #ffffff, 2px 4px 3px rgba(0, 0, 0, 0.25);
+  }
 `;
 
 const SnowmanDiv = styled.div`
