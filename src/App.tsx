@@ -1,12 +1,12 @@
 import { Fragment } from "react";
-import Main from "./components/Main";
+import Page from "./components/Page";
 import GlobalStyle from "./GlobalStyle";
 
 const App: React.FC = () => {
   return (
     <Fragment>
       <GlobalStyle />
-      <Main />
+      <Page />
     </Fragment>
   );
 };

@@ -12,7 +12,6 @@ const Snowman = styled.div`
   border-top-right-radius: 110px;
   border-bottom-right-radius: 15px;
   border-bottom-left-radius: 15px;
-  //border: 5px solid gray;
   border-bottom: 0;
   z-index: 0;
   position: relative;
@@ -25,7 +24,6 @@ const Snowman = styled.div`
     height: 114px;
     background-color: #6c6c6c;
     border-radius: 150px;
-    //border: 5px solid gray;
     content: "";
     z-index: 1;
   }

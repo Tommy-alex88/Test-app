@@ -1,32 +1,46 @@
-import { Fragment, useState, useEffect, useCallback, MouseEvent } from "react";
+import { useContext, useState, useEffect, useCallback, useMemo } from "react";
 
-import { Board, Coordinates, Item, AnimationRoutes } from "../data_types/types";
-import Button from "./UI/Button";
-import Message from "./UI/Message";
-import checkValidity from "../utils/checkValidity";
+import {
+  AnimationRoutes,
+  Board,
+  Coordinates,
+  Item,
+  Sentence,
+} from "../data_types/types";
+import Context from "../store/context";
+import checkValidity from "../utils/TextToSpeech/checkValidity";
 import {
   animateTable,
-  countTableShift,
   countAnimationRoutes,
+  countTableShift,
   sortAnimation,
   sortTable,
 } from "../utils/DragAndDrop";
-import speechSynthesizer from "../utils/speechSynthesizer";
+import speechSynthesizer from "../utils/TextToSpeech/speechSynthesizer";
+import Main from "./Pattern";
 
-import DnDContainer from "./UI/DnDContainer";
-import DragDiv from "./UI/DragDiv";
-import DropDiv from "./UI/DropDiv";
+const Page: React.FC = () => {
+  // get sentence from context
+  const ctx = useContext(Context);
+  const sentencePair = ctx.sentenceAll[0];
+  let data: Sentence = { en: "", ru: "" };
 
-const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
+  data = useMemo(() => {
+    if (typeof sentencePair !== "undefined") {
+      data = sentencePair;
+    }
+    return data;
+  }, [sentencePair]);
+
   const [boards, setBoards] = useState<Board[]>([]);
   const [isValid, setIsValid] = useState<boolean | null>(null);
 
   let dragItem: Item;
   let dragBoard: Board | undefined;
 
-  const prepareData = useCallback(() => {
+  const prepareBoard = useCallback(() => {
     try {
-      const enData = data.replace(/,/g, "").toLowerCase().split(" ").sort();
+      const enData = data.en.replace(/,/g, "").toLowerCase().split(" ").sort();
       let cells: Item[] = [];
       for (let i = 0; i <= 11; i++) {
         if (typeof enData[i] !== "undefined") {
@@ -46,24 +60,13 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
     } catch (error) {
       console.log(error);
     }
-  }, [data]);
+  }, [data.en]);
 
   useEffect(() => {
-    prepareData();
-  }, [prepareData]);
+    prepareBoard();
+  }, [prepareBoard]);
 
-  const checkHandler = () => {
-    const isCheckPass: boolean | string = checkValidity(data, boards[0]);
-    if (typeof isCheckPass === "string") {
-      //it works in Chrome by default
-      // speechSynthesizer(data);
-      console.log(data);
-      setIsValid(true);
-    } else {
-      setIsValid(isCheckPass);
-    }
-  };
-
+  // main drag and drop logic with onMouseDown, onMouseMove and onMouseUp event handlers
   let startY: number;
   let isDragging: boolean = false;
   let animProgress: number = 0;
@@ -74,6 +77,7 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
   let dropItemsLenght: number;
   let dropEl: HTMLElement | null;
 
+  // save drag elements and positions, calculate new positions based on current elements layout
   const mouseDownHandler = (e: MouseEvent, board: Board, item: Item) => {
     e.preventDefault();
     dragItem = item;
@@ -116,6 +120,7 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
     isDragging = true;
   };
 
+  // dragging element to calculated above position and simultaniously animating movement of other elements
   const mouseMoveHandler = (e: MouseEvent) => {
     if (!isDragging) {
       return;
@@ -143,6 +148,7 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
     }
   };
 
+  // check dropzones and draged element behaviour to update corresponding board state
   const mouseUpHandler = (e: MouseEvent) => {
     isDragging = false;
     if (isValid !== null) {
@@ -179,8 +185,6 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
       setBoards(updatedBoards);
 
       if (dragBoard.id === "drop") {
-        console.log(boards[1].items);
-
         const sortedItems = sortTable(tempDragItems);
 
         sortAnimation(tempDragItems, sortedItems)
@@ -198,45 +202,30 @@ const DnDComponent: React.FC<{ data: string }> = ({ data }) => {
     }
   };
 
+  // check if user collected right or wrong siquence of words and speak sentence if right collected
+  const checkHandler = () => {
+    const isCheckPass: boolean | string = checkValidity(data.en, boards[0]);
+    if (typeof isCheckPass === "string") {
+      //speechSynthesizer works by default in Chrome, but doesn't in Firefox
+      speechSynthesizer(data.en);
+      setIsValid(true);
+    } else {
+      setIsValid(isCheckPass);
+    }
+  };
+
   return (
-    <Fragment>
-      {boards.map((board) => {
-        return (
-          <DnDContainer
-            key={Math.random()}
-            onMouseMove={(e) => mouseMoveHandler(e)}
-            onMouseUp={(e) => mouseUpHandler(e)}
-            id={board.id === "drag" ? "drag" : "drop"}
-          >
-            {board.items.map((item) => {
-              return (
-                <DropDiv
-                  key={Math.random()}
-                  id={board.id === "drag" ? "drag" : ""}
-                >
-                  {item.value !== "" && (
-                    <DragDiv
-                      key={Math.random()}
-                      onMouseDown={(e) => mouseDownHandler(e, board, item)}
-                      id={item.id}
-                    >
-                      {item.value}
-                    </DragDiv>
-                  )}
-                </DropDiv>
-              );
-            })}
-          </DnDContainer>
-        );
-      })}
-      {isValid !== null ? (
-        <Message className={!isValid ? "invalid" : ""}>
-          {isValid ? "Very well!" : "Something wrong!"}
-        </Message>
-      ) : null}
-      <Button onClick={checkHandler}>Check</Button>
-    </Fragment>
+    <Main
+      ruSentence={data.ru}
+      headerText={"Translate this sentence"}
+      boards={boards}
+      isValid={isValid}
+      onButtonClick={checkHandler}
+      onMouseDown={mouseDownHandler}
+      onMouseMove={mouseMoveHandler}
+      onMouseUp={mouseUpHandler}
+    ></Main>
   );
 };
 
-export default DnDComponent;
+export default Page;

@@ -7,7 +7,7 @@ const speechSynthesizer = (text: string) => {
   const getVoices = () => {
     voices = synth.getVoices();
     voices.forEach((voice) => {
-      if (voice.name == "Google UK English Female") {
+      if (voice.name === "Google UK English Female") {
         selectedVoice = voice;
         console.log(selectedVoice.name);
       }

@@ -83,9 +83,6 @@ const countAnimationRoutes = (
         }
       }
     });
-    console.log(dragZoneItems);
-    console.log(sortedItems);
-    console.log(animationRoutesTable);
   }
   return animationRoutesTable;
 };
